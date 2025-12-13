@@ -22,12 +22,14 @@ import time
 import base64
 import io
 import json
+import platform
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import sounddevice as sd
 from pynput import keyboard
-from pynput.keyboard import Controller as KeyboardController
+from pynput.keyboard import Controller as KeyboardController, Key
 import requests
 import google.generativeai as genai
 
@@ -237,17 +239,62 @@ Final aggregated text:"""
     return response.text.strip()
 
 
+def copy_to_clipboard(text: str):
+    """Copy text to system clipboard (cross-platform)."""
+    system = platform.system()
+    if system == "Darwin":  # macOS
+        subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
+    elif system == "Linux":
+        # Try xclip first, then xsel
+        try:
+            subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode("utf-8"), check=True)
+        except FileNotFoundError:
+            subprocess.run(["xsel", "--clipboard", "--input"], input=text.encode("utf-8"), check=True)
+    elif system == "Windows":
+        subprocess.run(["clip"], input=text.encode("utf-8"), check=True, shell=True)
+
+
 def type_at_cursor(text: str):
-    """Type text at the current cursor position using keyboard simulation."""
+    """Type text at the current cursor position using clipboard paste.
+
+    On macOS, pynput's type() method is unreliable. Using clipboard + Cmd+V
+    is much more reliable for inserting text at cursor position.
+    """
     if not text:
         return
 
     print(f"  Typing at cursor in {OUTPUT_DELAY}s...")
     time.sleep(OUTPUT_DELAY)  # Give user time to focus target window
 
-    # Type the text character by character
-    keyboard_controller.type(text)
-    print("  [Typed at cursor]")
+    system = platform.system()
+
+    if system == "Darwin":  # macOS - use clipboard + Cmd+V (most reliable)
+        # Copy text to clipboard
+        copy_to_clipboard(text)
+        time.sleep(0.1)  # Small delay for clipboard to be ready
+
+        # Simulate Cmd+V paste
+        keyboard_controller.press(Key.cmd)
+        keyboard_controller.press('v')
+        keyboard_controller.release('v')
+        keyboard_controller.release(Key.cmd)
+        print("  [Pasted at cursor via Cmd+V]")
+    else:
+        # On other platforms, try clipboard paste first (Ctrl+V), fallback to type()
+        try:
+            copy_to_clipboard(text)
+            time.sleep(0.1)
+
+            # Simulate Ctrl+V paste
+            keyboard_controller.press(Key.ctrl)
+            keyboard_controller.press('v')
+            keyboard_controller.release('v')
+            keyboard_controller.release(Key.ctrl)
+            print("  [Pasted at cursor via Ctrl+V]")
+        except Exception:
+            # Fallback to character-by-character typing
+            keyboard_controller.type(text)
+            print("  [Typed at cursor]")
 
 
 def start_recording():
