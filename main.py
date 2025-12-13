@@ -5,7 +5,14 @@ EchoFlow POC - Voice to Text with Chirp 3 + Gemini Pro
 Flow:
 1. Hold Right Ctrl to start recording
 2. Audio chunked every 5s → parallel STT via Google Chirp 3
-3. Release Right Ctrl → Gemini Pro aggregates all transcripts → print
+3. Release Right Ctrl → Gemini Pro aggregates all transcripts → output
+
+Output modes (set via ECHOFLOW_OUTPUT env var):
+- "cursor" (default): Types text at current cursor position
+- "print": Prints to console only
+- "both": Both cursor typing and console print
+
+Set ECHOFLOW_OUTPUT_DELAY (default 0.5s) to adjust delay before typing.
 """
 
 import os
@@ -20,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 import sounddevice as sd
 from pynput import keyboard
+from pynput.keyboard import Controller as KeyboardController
 import requests
 import google.generativeai as genai
 
@@ -28,6 +36,10 @@ SAMPLE_RATE = 16000
 CHANNELS = 1
 CHUNK_DURATION = 5  # seconds
 TRIGGER_KEY = keyboard.Key.ctrl_l  # Right Ctrl - hold to talk
+
+# Output mode: "print" (console only), "cursor" (type at cursor), "both"
+OUTPUT_MODE = os.environ.get("ECHOFLOW_OUTPUT", "cursor")
+OUTPUT_DELAY = float(os.environ.get("ECHOFLOW_OUTPUT_DELAY", "0.5"))  # Delay before typing (seconds)
 
 # Models
 AGGREGATION_MODEL = "gemini-3-pro-preview"  # Pro model for final aggregation
@@ -51,6 +63,9 @@ buffer_lock = threading.Lock()
 # Auth
 google_access_token = None
 token_expiry = 0
+
+# Keyboard controller for typing at cursor
+keyboard_controller = KeyboardController()
 
 
 def init_gemini():
@@ -222,6 +237,19 @@ Final aggregated text:"""
     return response.text.strip()
 
 
+def type_at_cursor(text: str):
+    """Type text at the current cursor position using keyboard simulation."""
+    if not text:
+        return
+
+    print(f"  Typing at cursor in {OUTPUT_DELAY}s...")
+    time.sleep(OUTPUT_DELAY)  # Give user time to focus target window
+
+    # Type the text character by character
+    keyboard_controller.type(text)
+    print("  [Typed at cursor]")
+
+
 def start_recording():
     """Start audio capture."""
     global is_recording, audio_buffer, chunk_counter, futures, transcript_results
@@ -277,11 +305,16 @@ def stop_recording():
     print("  Aggregating with Gemini Pro...")
     final_text = aggregate_transcripts(ordered_transcripts)
 
-    print("\n" + "="*60)
-    print("FINAL OUTPUT:")
-    print("="*60)
-    print(final_text)
-    print("="*60 + "\n")
+    # Output based on mode
+    if OUTPUT_MODE in ("print", "both"):
+        print("\n" + "="*60)
+        print("FINAL OUTPUT:")
+        print("="*60)
+        print(final_text)
+        print("="*60 + "\n")
+
+    if OUTPUT_MODE in ("cursor", "both"):
+        type_at_cursor(final_text)
 
 
 def on_press(key):
@@ -313,6 +346,9 @@ def main():
     print(f"  Project: {CHIRP_PROJECT_ID}")
     print(f"  Region: {CHIRP_REGION}")
     print(f"Aggregation: {AGGREGATION_MODEL}")
+    print(f"Output mode: {OUTPUT_MODE}")
+    if OUTPUT_MODE in ("cursor", "both"):
+        print(f"  Output delay: {OUTPUT_DELAY}s")
     print("="*60)
     print("Press ESC to exit")
     print("="*60 + "\n")
