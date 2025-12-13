@@ -69,6 +69,11 @@ python main.py
 Grant accessibility permission when prompted:
 System Preferences → Privacy & Security → Accessibility → Enable for Terminal/IDE
 
+If cursor typing seems flaky, the app now pastes the final text using Cmd+V on macOS,
+so ensure your target window accepts paste operations and that `pbcopy` is available
+(it is installed by default). Set `ECHOFLOW_MAC_PASTE=0` to force key-by-key typing
+instead of the automatic paste on macOS.
+
 ### Linux
 
 May need to add user to input group:

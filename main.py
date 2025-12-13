@@ -22,6 +22,8 @@ import time
 import base64
 import io
 import json
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
@@ -40,6 +42,7 @@ TRIGGER_KEY = keyboard.Key.ctrl_l  # Right Ctrl - hold to talk
 # Output mode: "print" (console only), "cursor" (type at cursor), "both"
 OUTPUT_MODE = os.environ.get("ECHOFLOW_OUTPUT", "cursor")
 OUTPUT_DELAY = float(os.environ.get("ECHOFLOW_OUTPUT_DELAY", "0.5"))  # Delay before typing (seconds)
+MAC_PASTE_ENABLED = os.environ.get("ECHOFLOW_MAC_PASTE", "1").lower() not in {"0", "false", "no"}
 
 # Models
 AGGREGATION_MODEL = "gemini-3-pro-preview"  # Pro model for final aggregation
@@ -245,7 +248,22 @@ def type_at_cursor(text: str):
     print(f"  Typing at cursor in {OUTPUT_DELAY}s...")
     time.sleep(OUTPUT_DELAY)  # Give user time to focus target window
 
-    # Type the text character by character
+    if sys.platform == "darwin" and MAC_PASTE_ENABLED:
+        try:
+            # macOS: copy to clipboard then paste with Cmd+V for reliability
+            proc = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+            proc.communicate(input=text.encode("utf-8"))
+
+            keyboard_controller.press(keyboard.Key.cmd)
+            keyboard_controller.press("v")
+            keyboard_controller.release("v")
+            keyboard_controller.release(keyboard.Key.cmd)
+            print("  [Typed at cursor via paste]")
+            return
+        except Exception as e:
+            print(f"  macOS paste failed ({e}); falling back to typing")
+    
+    # Type the text character by character (default / fallback)
     keyboard_controller.type(text)
     print("  [Typed at cursor]")
 
