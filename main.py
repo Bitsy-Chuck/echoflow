@@ -72,6 +72,17 @@ token_expiry = 0
 keyboard_controller = KeyboardController()
 
 
+def play_sound(sound_name):
+    """Play a system sound on macOS."""
+    if sys.platform == "darwin":
+        try:
+            sound_path = f"/System/Library/Sounds/{sound_name}.aiff"
+            if os.path.exists(sound_path):
+                subprocess.Popen(["afplay", sound_path])
+        except Exception:
+            pass
+
+
 def init_gemini():
     """Initialize Gemini with API key from environment."""
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -255,6 +266,8 @@ def type_at_cursor(text: str):
             proc = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
             proc.communicate(input=text.encode("utf-8"))
 
+            play_sound("Glass")
+
             keyboard_controller.press(keyboard.Key.cmd)
             keyboard_controller.press("v")
             keyboard_controller.release("v")
@@ -272,6 +285,8 @@ def type_at_cursor(text: str):
 def start_recording():
     """Start audio capture."""
     global is_recording, audio_buffer, chunk_counter, futures, transcript_results
+
+    play_sound("Tink")
 
     # Reset state
     audio_buffer = []
