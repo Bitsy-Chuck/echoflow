@@ -45,7 +45,7 @@ OUTPUT_DELAY = float(os.environ.get("ECHOFLOW_OUTPUT_DELAY", "0.5"))  # Delay be
 MAC_PASTE_ENABLED = os.environ.get("ECHOFLOW_MAC_PASTE", "1").lower() not in {"0", "false", "no"}
 
 # Models
-AGGREGATION_MODEL = "gemini-3-pro-preview"  # Pro model for final aggregation
+AGGREGATION_MODEL = "gemini-3-flash-preview"  # Flash model for final aggregation
 
 # Chirp 3 config (from environment)
 CHIRP_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -370,11 +370,6 @@ def on_release(key):
     if is_recording and not TRIGGER_KEYS.issubset(current_pressed_keys):
         stop_recording()
 
-    # Exit on Escape
-    if key == keyboard.Key.esc:
-        print("\n[Exiting...]")
-        return False
-
 
 def main():
     print("="*60)
@@ -390,7 +385,7 @@ def main():
     if OUTPUT_MODE in ("cursor", "both"):
         print(f"  Output delay: {OUTPUT_DELAY}s")
     print("="*60)
-    print("Press ESC to exit")
+    print("Use Ctrl+C to exit")
     print("="*60 + "\n")
 
     # Validate config

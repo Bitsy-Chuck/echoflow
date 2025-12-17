@@ -60,7 +60,8 @@ python main.py
 1. **Hold Left Shift + Left Ctrl** to start recording
 2. **Speak** - audio is chunked every 5 seconds and sent to Chirp 3
 3. **Release Left Shift + Left Ctrl** to stop and get aggregated result
-4. **Press ESC** to exit
+4. **Paste (Cmd+V)** - The final transcribed text is automatically copied to your clipboard. You can paste it anywhere using `Cmd + V`.
+5. **Press ESC** to exit
 
 ## Platform Notes
 
