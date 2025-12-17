@@ -5,8 +5,8 @@ Hold-to-talk voice transcription using Google Chirp 3 + Gemini Pro.
 ## Flow
 
 ```
-Hold Right Ctrl → Audio chunked every 5s → Chirp 3 STT (parallel)
-Release Right Ctrl → Gemini Pro aggregates → Final text output
+Hold Left Shift + Left Ctrl → Audio chunked every 5s → Chirp 3 STT (parallel)
+Release Left Shift + Left Ctrl → Gemini Pro aggregates → Final text output
 ```
 
 ## Prerequisites
@@ -88,7 +88,7 @@ sudo usermod -aG input $USER
 ============================================================
 EchoFlow POC - Chirp 3 + Gemini Pro
 ============================================================
-Trigger key: Right Ctrl (hold to record)
+Trigger key: Left Shift + Left Ctrl (hold to record)
 Chunk duration: 5s
 STT: Google Chirp 3
   Project: my-project
@@ -96,7 +96,7 @@ STT: Google Chirp 3
 Aggregation: gemini-2.5-pro-preview-06-05
 ============================================================
 
-Hold Right Ctrl to record...
+Hold Left Shift + Left Ctrl to record...
 
 [Recording started] Hold key and speak...
   [Chunk 0] Queued for Chirp 3 (5.0s audio)
