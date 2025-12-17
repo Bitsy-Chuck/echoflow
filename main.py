@@ -37,7 +37,7 @@ import google.generativeai as genai
 SAMPLE_RATE = 16000
 CHANNELS = 1
 CHUNK_DURATION = 5  # seconds
-TRIGGER_KEY = keyboard.Key.ctrl_l  # Right Ctrl - hold to talk
+TRIGGER_KEYS = {keyboard.Key.shift_l, keyboard.Key.ctrl_l}  # Left Shift + Left Ctrl - hold to talk
 
 # Output mode: "print" (console only), "cursor" (type at cursor), "both"
 OUTPUT_MODE = os.environ.get("ECHOFLOW_OUTPUT", "cursor")
@@ -62,6 +62,7 @@ executor = ThreadPoolExecutor(max_workers=5)
 futures = []
 chunk_timer = None
 buffer_lock = threading.Lock()
+current_pressed_keys = set()
 
 # Auth
 google_access_token = None
@@ -337,15 +338,21 @@ def stop_recording():
 
 def on_press(key):
     """Handle key press."""
-    global is_recording
-    if key == TRIGGER_KEY and not is_recording:
+    global is_recording, current_pressed_keys
+    current_pressed_keys.add(key)
+    
+    if TRIGGER_KEYS.issubset(current_pressed_keys) and not is_recording:
         start_recording()
 
 
 def on_release(key):
     """Handle key release."""
-    global is_recording
-    if key == TRIGGER_KEY and is_recording:
+    global is_recording, current_pressed_keys
+    if key in current_pressed_keys:
+        current_pressed_keys.remove(key)
+    
+    # If we are recording and the trigger combo is broken, stop
+    if is_recording and not TRIGGER_KEYS.issubset(current_pressed_keys):
         stop_recording()
 
     # Exit on Escape
@@ -358,7 +365,7 @@ def main():
     print("="*60)
     print("EchoFlow POC - Chirp 3 + Gemini Pro")
     print("="*60)
-    print(f"Trigger key: Right Ctrl (hold to record)")
+    print(f"Trigger key: Left Shift + Left Ctrl (hold to record)")
     print(f"Chunk duration: {CHUNK_DURATION}s")
     print(f"STT: Google Chirp 3")
     print(f"  Project: {CHIRP_PROJECT_ID}")
@@ -394,7 +401,7 @@ def main():
 
     with stream:
         print("[Audio stream ready]")
-        print("\nHold Right Ctrl to record...\n")
+        print("\nHold Left Shift + Left Ctrl to record...\n")
 
         # Start keyboard listener (blocking)
         with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
