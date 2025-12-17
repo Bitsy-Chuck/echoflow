@@ -57,9 +57,9 @@ python main.py
 
 ## Usage
 
-1. **Hold Right Ctrl** to start recording
+1. **Hold Left Shift + Left Ctrl** to start recording
 2. **Speak** - audio is chunked every 5 seconds and sent to Chirp 3
-3. **Release Right Ctrl** to stop and get aggregated result
+3. **Release Left Shift + Left Ctrl** to stop and get aggregated result
 4. **Press ESC** to exit
 
 ## Platform Notes
