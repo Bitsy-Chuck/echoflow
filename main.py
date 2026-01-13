@@ -45,7 +45,28 @@ OUTPUT_DELAY = float(os.environ.get("ECHOFLOW_OUTPUT_DELAY", "0.5"))  # Delay be
 MAC_PASTE_ENABLED = os.environ.get("ECHOFLOW_MAC_PASTE", "1").lower() not in {"0", "false", "no"}
 
 # Models
-AGGREGATION_MODEL = "gemini-3-flash-preview"  # Flash model for final aggregation
+AGGREGATION_MODEL = "gemini-2.5-flash-lite"  # Flash model for final aggregation
+
+AGGREGATION_PROMPT = """You are a smart speech-to-text aggregator. You are processing a stream of audio chunks.
+
+Your Mission:
+Produce a clean, readable, and accurate transcript of what the user *intended* to say.
+
+Guidelines:
+1. **Merge & Repair**: Join the chunks seamlessly. Repair words cut off at chunk boundaries.
+2. **Format**: Add proper punctuation and capitalization.
+3. **Smart Correction**:
+   - If the user stumbles or corrects themselves (e.g., "let's go to the store, no wait, the park"), output the final intent ("let's go to the park").
+   - Remove filler words (ums, ahs) unless they convey hesitation important to the context.
+4. **Faithfulness**:
+   - Do NOT summarize. Keep the content full and detailed.
+   - Do NOT rewrite the user's style. If they speak casually, keep it casual.
+   - Only "fix" what is clearly an error or a stumble. Don't be too aggressive.
+5. **Output**: Produce ONLY the final text.
+
+Input Transcripts:
+{transcripts}
+"""
 
 # Chirp 3 config (from environment)
 CHIRP_PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -232,21 +253,8 @@ def aggregate_transcripts(transcripts: list[str]) -> str:
 
     model = genai.GenerativeModel(AGGREGATION_MODEL)
 
-    prompt = f"""You are aggregating speech-to-text transcripts from consecutive audio chunks.
-The chunks were recorded continuously and transcribed separately.
-
-Your task:
-1. Combine these transcripts into a single coherent text
-2. Fix any word fragments at chunk boundaries
-3. Remove duplicate words that may appear at chunk edges
-4. Clean up minor speech artifacts (ums, uhs) if present
-5. Preserve the speaker's meaning and style exactly
-6. Return ONLY the final clean text, nothing else
-
-Transcripts (in order):
-{chr(10).join(f"[Chunk {i}]: {t}" for i, t in enumerate(non_empty))}
-
-Final aggregated text:"""
+    formatted_transcripts = chr(10).join(f"[Chunk {i}]: {t}" for i, t in enumerate(non_empty))
+    prompt = AGGREGATION_PROMPT.format(transcripts=formatted_transcripts)
 
     response = model.generate_content(prompt)
     return response.text.strip()
