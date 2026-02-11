@@ -1,46 +1,46 @@
 # EchoFlow POC
 
-Hold-to-talk voice transcription using Google Chirp 3 + Gemini Pro.
+Hold-to-talk voice transcription with Gemini Pro aggregation. Supports two STT engines:
+
+- **Google Chirp 3** — English transcription via Google Cloud Speech-to-Text
+- **Sarvam AI** — Indian language transcription (Hindi, Tamil, Telugu, etc.) with auto language detection
 
 ## Flow
 
 ```
-Hold Left Shift + Left Ctrl → Audio chunked every 5s → Chirp 3 STT (parallel)
+Hold Left Shift + Left Ctrl → Audio chunked every 5s → STT (parallel)
 Release Left Shift + Left Ctrl → Gemini Pro aggregates → Final text output
 ```
 
 ## Prerequisites
 
 - Python 3.10+
-- Google Cloud project with Speech-to-Text API enabled
 - Gemini API key
+
+**For Chirp 3 mode:**
+- Google Cloud project with Speech-to-Text API enabled
 - gcloud CLI installed and authenticated
+
+**For Sarvam mode:**
+- Sarvam AI API key (from [sarvam.ai](https://www.sarvam.ai))
 
 ## Setup
 
 ### 1. Install dependencies
 
 ```bash
-cd echoflow-poc
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Authenticate with Google Cloud
+### 2a. Chirp 3 setup
 
 ```bash
 gcloud auth login
 gcloud config set project YOUR_PROJECT_ID
-```
-
-### 3. Enable Speech-to-Text API
-
-```bash
 gcloud services enable speech.googleapis.com
-```
 
-### 4. Set environment variables
-
-```bash
 export GOOGLE_CLOUD_PROJECT="your-project-id"
 export GEMINI_API_KEY="your-gemini-api-key"
 
@@ -49,10 +49,27 @@ export CHIRP_REGION="us-central1"
 export CHIRP_RECOGNIZER="_"
 ```
 
-## Run
+### 2b. Sarvam AI setup
 
 ```bash
-python main.py
+export SARVAM_API_KEY="your-sarvam-api-key"
+export GEMINI_API_KEY="your-gemini-api-key"
+
+# Optional — defaults to "unknown" (auto-detect)
+export SARVAM_LANGUAGE_CODE="hi-IN"
+```
+
+## Run
+
+**Via router** (edit `STT_ENGINE` in `run.py` to switch between `"chirp"` and `"sarvam"`):
+```bash
+python run.py
+```
+
+**Directly:**
+```bash
+python main.py          # Chirp 3
+python sarvam_main.py   # Sarvam AI
 ```
 
 ## Usage
@@ -83,36 +100,12 @@ sudo usermod -aG input $USER
 # Log out and back in
 ```
 
-## Example Output
+## Architecture
 
-```
-============================================================
-EchoFlow POC - Chirp 3 + Gemini Pro
-============================================================
-Trigger key: Left Shift + Left Ctrl (hold to record)
-Chunk duration: 5s
-STT: Google Chirp 3
-  Project: my-project
-  Region: us-central1
-Aggregation: gemini-2.5-pro-preview-06-05
-============================================================
+Single-file per engine. `run.py` routes between them. No tests, no build step.
 
-Hold Left Shift + Left Ctrl to record...
-
-[Recording started] Hold key and speak...
-  [Chunk 0] Queued for Chirp 3 (5.0s audio)
-  [Chunk 0] Chirp 3 complete: "Hello this is a test of the..."
-  [Chunk 1] Queued for Chirp 3 (5.0s audio)
-  [Chunk 1] Chirp 3 complete: "...transcription system"
-[Recording stopped] Processing...
-  [Chunk 2] Final chunk (2.3s audio)
-  Waiting for all Chirp 3 STT to complete...
-  All 3 chunks transcribed
-  Aggregating with Gemini Pro...
-
-============================================================
-FINAL OUTPUT:
-============================================================
-Hello, this is a test of the transcription system.
-============================================================
-```
+- **Audio capture**: `sounddevice.InputStream` callback fills buffer
+- **Chunking**: Timer thread drains buffer every 5s
+- **STT**: `ThreadPoolExecutor(max_workers=5)` sends chunks in parallel
+- **Aggregation**: Gemini aggregates all chunk transcripts into clean text
+- **Output**: Copies to clipboard and pastes via Cmd+V on macOS
