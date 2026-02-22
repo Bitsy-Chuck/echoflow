@@ -16,6 +16,8 @@ Set ECHOFLOW_OUTPUT_DELAY (default 0.5s) to adjust delay before typing.
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import queue
 import threading
 import time
