@@ -1,0 +1,98 @@
+{
+  "vocab": [
+    "Dashtoon", "Arpit", "Ojasv", "GTM", "PR", "Vertex", "Supabase", "Claude Code",
+    "EchoFlow", "Gemini", "Sarvam", "Chirp", "Figma", "Kubernetes", "standup", "Wispr Flow"
+  ],
+  "cases": [
+    {
+      "id": "casual-vocab",
+      "voice": "Puck",
+      "spoken": "अरे यार, कल की meeting में हम Dashtoon का GTM plan discuss करेंगे, और umm Arpit को PR review के लिए ping कर देना।",
+      "expected": "Arre yaar, kal ki meeting mein hum Dashtoon ka GTM plan discuss karenge, aur Arpit ko PR review ke liye ping kar dena."
+    },
+    {
+      "id": "self-correction-day",
+      "voice": "Kore",
+      "spoken": "Ojasv, मुझे लगता है हमें deploy Tuesday को करना चाहिए, नहीं नहीं, Wednesday को, क्योंकि Vertex का quota अभी reset नहीं हुआ है।",
+      "expected": "Ojasv, mujhe lagta hai hamein deploy Wednesday ko karna chahiye, kyunki Vertex ka quota abhi reset nahi hua hai."
+    },
+    {
+      "id": "question",
+      "voice": "Charon",
+      "spoken": "क्या तुमने Supabase वाला migration run किया? मतलब production पे या सिर्फ staging पे?",
+      "expected": "Kya tumne Supabase wala migration run kiya? Matlab production pe ya sirf staging pe?"
+    },
+    {
+      "id": "english-heavy",
+      "voice": "Fenrir",
+      "spoken": "Okay so the main issue is that the storyboard generation is too slow, और हमें इसको under ten seconds लाना है before the demo on Friday.",
+      "expected": "Okay so the main issue is that the storyboard generation is too slow, aur hamein isko under 10 seconds laana hai before the demo on Friday."
+    },
+    {
+      "id": "hindi-heavy",
+      "voice": "Aoede",
+      "spoken": "मैं आज थोड़ा late आऊँगा क्योंकि मम्मी को doctor के पास ले जाना है, तो standup तुम ले लेना।",
+      "expected": "Main aaj thoda late aaunga kyunki mummy ko doctor ke paas le jaana hai, toh standup tum le lena."
+    },
+    {
+      "id": "tech-vocab",
+      "voice": "Puck",
+      "spoken": "Claude Code से बोलो कि EchoFlow का transcription module refactor करे और Gemini SDK पे migrate कर दे।",
+      "expected": "Claude Code se bolo ki EchoFlow ka transcription module refactor kare aur Gemini SDK pe migrate kar de."
+    },
+    {
+      "id": "fillers",
+      "voice": "Kore",
+      "spoken": "तो basically, umm, जो हमारा pricing page है ना, उसमें like, uh, तीन plans होने चाहिए, basic, pro और team.",
+      "expected": "Toh basically, jo hamara pricing page hai na, usmein teen plans hone chahiye, Basic, Pro aur Team."
+    },
+    {
+      "id": "numbers-time",
+      "voice": "Charon",
+      "spoken": "Client call साढ़े चार बजे है, और उनका budget लगभग पचास हज़ार dollars है।",
+      "expected": "Client call 4:30 baje hai, aur unka budget lagbhag 50,000 dollars hai."
+    },
+    {
+      "id": "long-dictation",
+      "voice": "Fenrir",
+      "spoken": "देखो, मैंने Sarvam और Chirp दोनों try किए, लेकिन Hinglish में दोनों थोड़ा struggle करते हैं। Sarvam Hindi words को Devanagari में लिख देता है, और Chirp English words को गलत spell करता है। इसलिए मैं सोच रहा हूँ कि हम Gemini से directly transcribe करवाएँ और एक custom vocabulary रखें जिसमें हमारे सारे product names हों।",
+      "expected": "Dekho, maine Sarvam aur Chirp dono try kiye, lekin Hinglish mein dono thoda struggle karte hain. Sarvam Hindi words ko Devanagari mein likh deta hai, aur Chirp English words ko galat spell karta hai. Isliye main soch raha hoon ki hum Gemini se directly transcribe karwaayein aur ek custom vocabulary rakhein jismein hamare saare product names hon."
+    },
+    {
+      "id": "names",
+      "voice": "Aoede",
+      "spoken": "Arpit और Ojasv को बोलो कि Figma file में जो Dashtoon का new onboarding flow है, उसपे comments छोड़ दें।",
+      "expected": "Arpit aur Ojasv ko bolo ki Figma file mein jo Dashtoon ka new onboarding flow hai, uspe comments chhod dein."
+    },
+    {
+      "id": "self-correction-channel",
+      "voice": "Puck",
+      "spoken": "इसको Slack पे भेज दो, sorry, email पे भेज दो, Slack पे client नहीं है।",
+      "expected": "Isko email pe bhej do, Slack pe client nahi hai."
+    },
+    {
+      "id": "short",
+      "voice": "Kore",
+      "spoken": "हाँ ठीक है, कर देता हूँ।",
+      "expected": "Haan theek hai, kar deta hoon."
+    },
+    {
+      "id": "devops",
+      "voice": "Charon",
+      "spoken": "Kubernetes cluster में pods बार बार crash हो रहे हैं, logs check करो और memory limit बढ़ा दो।",
+      "expected": "Kubernetes cluster mein pods baar baar crash ho rahe hain, logs check karo aur memory limit badha do."
+    },
+    {
+      "id": "english-only",
+      "voice": "Fenrir",
+      "spoken": "Can you send me the updated deck by tonight? I want to review it before the investor meeting tomorrow morning.",
+      "expected": "Can you send me the updated deck by tonight? I want to review it before the investor meeting tomorrow morning."
+    },
+    {
+      "id": "casual-bug",
+      "voice": "Aoede",
+      "spoken": "भाई ये bug तो कमाल का है यार, local पे चलता है पर production पे नहीं चलता।",
+      "expected": "Bhai ye bug toh kamaal ka hai yaar, local pe chalta hai par production pe nahi chalta."
+    }
+  ]
+}

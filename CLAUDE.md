@@ -4,32 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EchoFlow is a POC for hold-to-talk voice transcription. Hold Left Shift + Left Ctrl to record audio, which gets chunked every 5s and sent to Google Chirp 3 STT in parallel. On release, Gemini aggregates the chunks into clean text and pastes it at the cursor.
+EchoFlow is hold-to-talk Hinglish dictation for macOS.
+Hold Left Ctrl + Left Shift, speak, release: Gemini Transcribe produces a raw transcript biased with the user's vocabulary, Gemini 3.6 Flash rewrites it as clean Roman-script Hinglish, and the text is pasted at the cursor.
+Design and model-choice evidence: `docs/superpowers/specs/2026-09-11-echoflow-hinglish-design.md`.
 
-## Running
+## Commands
 
 ```bash
-pip install -r requirements.txt
-python main.py
+venv/bin/python main.py                 # run the app
+venv/bin/python -m pytest               # unit tests
+venv/bin/python eval/make_audio.py      # generate eval clips (once)
+venv/bin/python eval/run_eval.py        # accuracy/latency of the pipelines
 ```
 
-**Required env vars:** `GOOGLE_CLOUD_PROJECT`, `GEMINI_API_KEY`
-**Optional env vars:** `CHIRP_REGION` (default: us-central1), `CHIRP_RECOGNIZER` (default: _), `ECHOFLOW_OUTPUT` (print/cursor/both, default: cursor), `ECHOFLOW_OUTPUT_DELAY` (default: 0.5), `ECHOFLOW_MAC_PASTE` (default: 1)
-
-Requires `gcloud auth login` for Chirp 3 access tokens.
+Config is `.env` (see `.env.example`): service account key path, GCP project, location.
+This repo is public - never commit `.env`, keys, or `eval/audio/`.
 
 ## Architecture
 
-Single-file app (`main.py`, ~434 lines). No tests, no build step.
+- `echoflow/app.py` - pynput listener callbacks stay fast; a single-thread executor does transcription and paste, so pastes stay in order.
+- `echoflow/hotkeys.py` - pure hold-to-talk state machine (START / STOP / CANCEL / ADD_VOCAB).
+- `echoflow/transcriber.py` - model IDs, style rules prompt, `transcribe()` pipeline with a Devanagari retry.
+- `echoflow/audio.py` - always-open input stream, WAV encoding, silence/too-short detection.
+- `echoflow/macos.py` - frontmost app via CGWindowList (NSWorkspace goes stale without a run loop), clipboard snapshot/restore, synthetic Cmd+V/Cmd+C after modifiers are released.
+- `echoflow/vocab.py` - `~/.echoflow/vocab.txt`.
 
-**Threading model:**
-- Main thread: `pynput` keyboard listener (blocking)
-- Audio thread: `sounddevice.InputStream` callback fills buffer
-- Timer thread: every 5s, drains buffer into a chunk
-- Worker pool: `ThreadPoolExecutor(max_workers=5)` sends chunks to Chirp 3 API in parallel
+## Gotchas
 
-**Key flow:** `on_press` → `start_recording()` → audio accumulates in `audio_buffer` → timer fires `process_chunk()` → submits `transcribe_chunk_chirp3()` to executor → on key release `stop_recording()` → waits for all futures → `aggregate_transcripts()` via Gemini → `type_at_cursor()` pastes via pbcopy+Cmd+V on macOS.
-
-**Global state:** `is_recording`, `audio_buffer`, `futures`, `transcript_results`, `chunk_counter`, `current_pressed_keys` — protected by `buffer_lock` where needed.
-
-**Output:** On macOS, copies to clipboard and simulates Cmd+V paste. Falls back to character-by-character typing. Plays system sounds (Tink on start, Glass on paste).
+- Gemini Transcribe SMART mode silently ignores `custom_vocabulary`; use VERBATIM.
+- `gemini-3.8-flash` rejects `thinking_level=MINIMAL`; `LOW` is its lowest.
+- Mixed-script transcripts (Latin + Devanagari) are the case the cleanup model most often fails to transliterate; the cleanup request insists on Roman script and `transcribe()` retries if Devanagari survives.
+- Change a model or prompt only with an eval run before and after.
