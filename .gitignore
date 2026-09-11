@@ -26,3 +26,7 @@ __pycache__/
 
 # OS specific
 .DS_Store
+eval/audio/
+eval/results/
+.pytest_cache/
+.ruff_cache/

@@ -1,111 +1,76 @@
-# EchoFlow POC
+# EchoFlow
 
-Hold-to-talk voice transcription with Gemini Pro aggregation. Supports two STT engines:
+Hold-to-talk dictation for Hinglish on macOS, in the spirit of Wispr Flow.
+Hold a hotkey, speak, release, and clean text is pasted at your cursor.
 
-- **Google Chirp 3** — English transcription via Google Cloud Speech-to-Text
-- **Sarvam AI** — Indian language transcription (Hindi, Tamil, Telugu, etc.) with auto language detection
+- Speak Hindi, English or any mix; the output is Roman-script Hinglish ("kal ki meeting mein roadmap discuss karte hain").
+- Proper punctuation and capitalization, filler words removed, self-corrections resolved ("Tuesday, nahi nahi, Wednesday" becomes "Wednesday").
+- Your own vocabulary (names, products, jargon) is spelled exactly the way you want.
+- Text appears about 2 seconds after you release the keys.
 
-## Flow
+## How it works
 
-```
-Hold Left Shift + Left Ctrl → Audio chunked every 5s → STT (parallel)
-Release Left Shift + Left Ctrl → Gemini Pro aggregates → Final text output
-```
+1. **Gemini 3.5 Transcribe** (`gemini-3.5-transcribe-preview`) turns the audio into a raw transcript, biased towards your vocabulary.
+2. **Gemini 3.6 Flash** rewrites it into the final text: Roman script, punctuation, cleanup, vocabulary spelling.
+3. The text is pasted with Cmd+V and your previous clipboard is restored.
 
-## Prerequisites
-
-- Python 3.10+
-- Gemini API key
-
-**For Chirp 3 mode:**
-- Google Cloud project with Speech-to-Text API enabled
-- gcloud CLI installed and authenticated
-
-**For Sarvam mode:**
-- Sarvam AI API key (from [sarvam.ai](https://www.sarvam.ai))
+This pair was chosen by measurement, see [Accuracy](#accuracy).
 
 ## Setup
 
-### 1. Install dependencies
+Requires macOS, Python 3.11+, and a Google Cloud service account with Vertex AI access.
 
 ```bash
 python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+venv/bin/pip install -r requirements.txt
+cp .env.example .env   # then fill in the key path and project
 ```
 
-### 2a. Chirp 3 setup
+Give your terminal app these permissions in System Settings > Privacy & Security:
+**Accessibility** (to paste), **Input Monitoring** (to see the hotkey) and **Microphone**.
+
+## Use
 
 ```bash
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
-gcloud services enable speech.googleapis.com
-
-export GOOGLE_CLOUD_PROJECT="your-project-id"
-export GEMINI_API_KEY="your-gemini-api-key"
-
-# Optional (defaults shown)
-export CHIRP_REGION="us-central1"
-export CHIRP_RECOGNIZER="_"
+venv/bin/python main.py
 ```
 
-### 2b. Sarvam AI setup
+| Action | Keys |
+|---|---|
+| Dictate | Hold **Left Ctrl + Left Shift**, speak, release |
+| Add a word to your vocabulary | Select it anywhere, press **Left Ctrl + Left Shift + D** |
+| Quit | Ctrl+C in the terminal |
+
+Sounds: Tink when listening, Glass when pasted, Pop when a word is added, Basso on errors.
+Every result is also printed in the terminal, so nothing is lost if the paste lands in the wrong place.
+Pressing any other key while holding Ctrl+Shift cancels, so normal Ctrl+Shift shortcuts keep working.
+
+### Vocabulary
+
+Your vocabulary lives in `~/.echoflow/vocab.txt`, one term per line (lines starting with `#` are comments).
+It is re-read on every dictation, so edits apply immediately.
+Add names, product names and jargon that get misspelled - not everyday words.
+
+## Accuracy
+
+`eval/` holds 15 Hinglish test clips (generated with Gemini TTS) and their expected text.
 
 ```bash
-export SARVAM_API_KEY="your-sarvam-api-key"
-export GEMINI_API_KEY="your-gemini-api-key"
-
-# Optional — defaults to "unknown" (auto-detect)
-export SARVAM_LANGUAGE_CODE="hi-IN"
+venv/bin/python eval/make_audio.py   # once, writes eval/audio/
+venv/bin/python eval/run_eval.py     # compares pipelines
 ```
 
-## Run
+| Pipeline | WER | Latency p50 |
+|---|---|---|
+| **Transcribe + 3.6 Flash (EchoFlow)** | **0.9%** | **~1.9s** |
+| Audio directly to gemini-3.1-pro-preview | 1.4% | 5.1s |
+| Audio directly to gemini-3.8-flash | 7.6% | 1.7s |
+| Transcribe only | 60% (writes Devanagari) | 0.9s |
 
-**Via router** (edit `STT_ENGINE` in `run.py` to switch between `"chirp"` and `"sarvam"`):
+Rerun it when new models ship.
+
+## Tests
+
 ```bash
-python run.py
+venv/bin/python -m pytest
 ```
-
-**Directly:**
-```bash
-python main.py          # Chirp 3
-python sarvam_main.py   # Sarvam AI
-```
-
-## Usage
-
-1. **Hold Left Shift + Left Ctrl** to start recording
-2. **Speak** - audio is chunked every 5 seconds and sent to Chirp 3
-3. **Release Left Shift + Left Ctrl** to stop and get aggregated result
-4. **Paste (Cmd+V)** - The final transcribed text is automatically copied to your clipboard. You can paste it anywhere using `Cmd + V`.
-5. **Press ESC** to exit
-
-## Platform Notes
-
-### macOS
-
-Grant accessibility permission when prompted:
-System Preferences → Privacy & Security → Accessibility → Enable for Terminal/IDE
-
-If cursor typing seems flaky, the app now pastes the final text using Cmd+V on macOS,
-so ensure your target window accepts paste operations and that `pbcopy` is available
-(it is installed by default). Set `ECHOFLOW_MAC_PASTE=0` to force key-by-key typing
-instead of the automatic paste on macOS.
-
-### Linux
-
-May need to add user to input group:
-```bash
-sudo usermod -aG input $USER
-# Log out and back in
-```
-
-## Architecture
-
-Single-file per engine. `run.py` routes between them. No tests, no build step.
-
-- **Audio capture**: `sounddevice.InputStream` callback fills buffer
-- **Chunking**: Timer thread drains buffer every 5s
-- **STT**: `ThreadPoolExecutor(max_workers=5)` sends chunks in parallel
-- **Aggregation**: Gemini aggregates all chunk transcripts into clean text
-- **Output**: Copies to clipboard and pastes via Cmd+V on macOS
