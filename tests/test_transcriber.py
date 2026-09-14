@@ -3,27 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from echoflow import transcriber
-
-
-def response(text: str):
-    part = SimpleNamespace(text=text, thought=False, audio_transcription=None)
-    return SimpleNamespace(candidates=[SimpleNamespace(content=SimpleNamespace(parts=[part]))])
-
-
-class FakeClient:
-    """Records generate_content calls; returns queued results (Exceptions are raised)."""
-
-    def __init__(self, *results):
-        self.results = list(results)
-        self.calls = []
-        self.models = self
-
-    def generate_content(self, model, contents, config):
-        self.calls.append(SimpleNamespace(model=model, contents=contents, config=config))
-        result = self.results.pop(0)
-        if isinstance(result, Exception):
-            raise result
-        return response(result)
+from tests.conftest import FakeClient
 
 
 def test_transcribe_runs_verbatim_asr_then_cleanup():

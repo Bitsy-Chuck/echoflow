@@ -14,7 +14,7 @@ from google.auth.exceptions import GoogleAuthError
 from google.genai.errors import APIError
 from pynput import keyboard
 
-from echoflow import audio, macos, transcriber, vocab
+from echoflow import audio, button, macos, transcriber, vocab
 from echoflow.gcp import make_client
 from echoflow.hotkeys import Action, HoldToTalk
 
@@ -39,24 +39,54 @@ class App:
         self.hotkeys = HoldToTalk(trigger=TRIGGER, vocab_key=VOCAB_KEY)
         self.worker = ThreadPoolExecutor(max_workers=1)  # one job at a time keeps pastes in order
         self.start_sound = None
+        self.state = "idle"  # idle | recording | working; the floating button renders this
+        self.source = None   # which trigger owns the current recording: hotkey or button
+        self.started_at = None
+
+    def _begin(self, source):
+        self.recorder.start()
+        self.state, self.source, self.started_at = "recording", source, time.monotonic()
+        if source == "hotkey":  # delayed, so plain Ctrl+Shift shortcuts stay silent
+            self.start_sound = threading.Timer(START_SOUND_DELAY, macos.play_sound, ["Tink"])
+            self.start_sound.start()
+        else:
+            macos.play_sound("Tink")
+
+    def _end(self):
+        if self.start_sound:
+            self.start_sound.cancel()
+        samples = self.recorder.stop()
+        self.state, self.source, self.started_at = "idle", None, None
+        return samples
+
+    def recording_seconds(self) -> int:
+        return int(time.monotonic() - self.started_at) if self.started_at else 0
+
+    def toggle(self):
+        """Floating button click: start recording, or finish the recording it started."""
+        if self.state == "idle":
+            self._begin("button")
+        elif self.source == "button":
+            samples = self._end()
+            self.state = "working"
+            self._submit(self.dictate, samples)
 
     # Listener callbacks: keep them fast, slow work goes to the worker.
     def on_press(self, key):
         action = self.hotkeys.press(normalize(key))
-        if action is Action.START:
-            self.recorder.start()
-            self.start_sound = threading.Timer(START_SOUND_DELAY, macos.play_sound, ["Tink"])
-            self.start_sound.start()
+        if action is Action.START and self.state == "idle":
+            self._begin("hotkey")
         elif action in (Action.CANCEL, Action.ADD_VOCAB):
-            self.start_sound.cancel()
-            self.recorder.stop()
+            if self.source == "hotkey":
+                self._end()
             if action is Action.ADD_VOCAB:
                 self._submit(self.add_vocab)
 
     def on_release(self, key):
-        if self.hotkeys.release(normalize(key)) is Action.STOP:
-            self.start_sound.cancel()
-            self._submit(self.dictate, self.recorder.stop())
+        if self.hotkeys.release(normalize(key)) is Action.STOP and self.source == "hotkey":
+            samples = self._end()
+            self.state = "working"
+            self._submit(self.dictate, samples)
 
     def _submit(self, fn, *args):
         def run():
@@ -68,24 +98,27 @@ class App:
         self.worker.submit(run)
 
     def dictate(self, samples):
-        if not audio.has_speech(samples):
-            log.info("(nothing heard)")
-            return
-        started = time.perf_counter()
         try:
-            text = transcriber.transcribe(self.client, audio.to_wav(samples),
-                                          vocab.load(self.vocab_path), macos.frontmost_app())
-        except EXPECTED_FAILURES as e:
-            log.error("Transcription failed: %s", e)
-            macos.play_sound("Basso")
-            return
-        if not text:
-            log.info("(no speech recognized)")
-            return
-        macos.paste(text)
-        macos.play_sound("Glass")
-        log.info("[%.1fs audio, %.1fs] %s", len(samples) / audio.SAMPLE_RATE,
-                 time.perf_counter() - started, text)
+            if not audio.has_speech(samples):
+                log.info("(nothing heard)")
+                return
+            started = time.perf_counter()
+            try:
+                text = transcriber.transcribe(self.client, audio.to_wav(samples),
+                                              vocab.load(self.vocab_path), macos.frontmost_app())
+            except EXPECTED_FAILURES as e:
+                log.error("Transcription failed: %s", e)
+                macos.play_sound("Basso")
+                return
+            if not text:
+                log.info("(no speech recognized)")
+                return
+            macos.paste(text)
+            macos.play_sound("Glass")
+            log.info("[%.1fs audio, %.1fs] %s", len(samples) / audio.SAMPLE_RATE,
+                     time.perf_counter() - started, text)
+        finally:
+            self.state = "idle"
 
     def add_vocab(self):
         text = macos.copy_selection()
@@ -118,9 +151,7 @@ def main():
         with keyboard.Listener(on_press=app.on_press, on_release=app.on_release) as listener:
             listener.wait()  # only announce "ready" once keys and microphone are really live
             log.info("EchoFlow ready - %s -> %s", transcriber.TRANSCRIBE_MODEL, transcriber.CLEANUP_MODEL)
-            log.info("Hold Left Ctrl + Left Shift to talk. Select text + Left Ctrl + Left Shift + D to add vocab.")
+            log.info("Click the floating button, or hold Left Ctrl + Left Shift, to talk.")
+            log.info("Select text + Left Ctrl + Left Shift + D adds it to your vocabulary.")
             log.info("Vocabulary: %s (%d terms). Ctrl+C to quit.\n", vocab.DEFAULT_PATH, len(vocab.load()))
-            try:
-                listener.join()
-            except KeyboardInterrupt:
-                pass
+            button.run(app)  # AppKit needs the main thread; the key listener runs in its own

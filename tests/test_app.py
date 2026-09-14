@@ -1,42 +1,8 @@
-import numpy as np
-import pytest
 from google.genai.errors import APIError
 from pynput.keyboard import Key, KeyCode
 
-from echoflow import app as app_module
-from echoflow import audio, vocab
-from tests.test_transcriber import FakeClient
-
-SPEECH = (0.1 * np.sin(np.arange(audio.SAMPLE_RATE) * 0.1)).astype(np.float32)  # 1s, clearly audible
-SILENCE = np.zeros(audio.SAMPLE_RATE, dtype=np.float32)
-
-
-class FakeRecorder:
-    def __init__(self, samples):
-        self.samples = samples
-        self.started = 0
-
-    def start(self):
-        self.started += 1
-
-    def stop(self):
-        return self.samples
-
-
-@pytest.fixture
-def mac(monkeypatch):
-    """Replace the macOS side effects and record them."""
-    events = {"pasted": [], "sounds": [], "selection": None}
-    monkeypatch.setattr(app_module.macos, "paste", events["pasted"].append)
-    monkeypatch.setattr(app_module.macos, "play_sound", events["sounds"].append)
-    monkeypatch.setattr(app_module.macos, "frontmost_app", lambda: "Slack")
-    monkeypatch.setattr(app_module.macos, "copy_selection", lambda: events["selection"])
-    return events
-
-
-def make_app(tmp_path, samples, *results):
-    client = FakeClient(*results)
-    return app_module.App(client, FakeRecorder(samples), vocab_path=tmp_path / "vocab.txt"), client
+from echoflow import vocab
+from tests.conftest import SILENCE, SPEECH, drain, make_app
 
 
 def hold_and_release(app, *extra_keys):
@@ -47,7 +13,7 @@ def hold_and_release(app, *extra_keys):
         app.on_release(key)
     app.on_release(Key.shift_l)
     app.on_release(Key.ctrl_l)
-    app.worker.shutdown(wait=True)
+    drain(app)
 
 
 def test_dictation_pastes_cleaned_text(tmp_path, mac):
